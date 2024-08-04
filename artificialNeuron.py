@@ -1,27 +1,30 @@
 import numpy as np
 
 class DetailedIonChannel:
-    def __init__(self, type, conductance, reversal_potential):
+    def __init__(self, type, conductance, reversal_potential, state_var):
         self.type = type
         self.conductance = conductance
         self.reversal_potential = reversal_potential
-        self.state = np.random.rand()
+        self.state_var = state_var  # e.g., m, h, n gating variables
 
-    def update_state(self, voltage):
-        self.state = 1 / (1 + np.exp(-(voltage - self.reversal_potential)))
+    def update_state(self, voltage, time_step):
+        # Placeholder for gating variable dynamics
+        alpha = 0.1 * (voltage + 40) / (1 - np.exp(-(voltage + 40) / 10))
+        beta = 4 * np.exp(-(voltage + 65) / 18)
+        self.state_var = self.state_var + time_step * (alpha * (1 - self.state_var) - beta * self.state_var)
 
     def get_current(self, voltage):
-        return self.conductance * self.state * (voltage - self.reversal_potential)
+        return self.conductance * (self.state_var ** 3) * (voltage - self.reversal_potential)
 
 class Synapse:
-    def __init__(self, target_neuron, weight):
+    def __init__(self, target_neuron, weight, neurotransmitter_type='glutamate'):
         self.target_neuron = target_neuron
         self.weight = weight
+        self.neurotransmitter_type = neurotransmitter_type
         self.neurotransmitter_concentration = 0
-        self.release_probability = np.random.rand()
 
     def release_neurotransmitter(self):
-        self.neurotransmitter_concentration = self.release_probability * np.random.rand()
+        self.neurotransmitter_concentration = np.random.rand()  # Probability-based release
 
     def transmit(self):
         binding = self.neurotransmitter_concentration * np.random.rand()
@@ -46,9 +49,9 @@ class DetailedNeuron:
         self.spike_threshold = 0.5
         self.dendritic_structure = np.random.rand(num_inputs)
         
-        self.sodium_channel = DetailedIonChannel('Na', conductance=120, reversal_potential=50)
-        self.potassium_channel = DetailedIonChannel('K', conductance=36, reversal_potential=-77)
-        self.calcium_channel = DetailedIonChannel('Ca', conductance=2, reversal_potential=120)
+        self.sodium_channel = DetailedIonChannel('Na', conductance=120, reversal_potential=50, state_var=0.05)
+        self.potassium_channel = DetailedIonChannel('K', conductance=36, reversal_potential=-77, state_var=0.6)
+        self.calcium_channel = DetailedIonChannel('Ca', conductance=2, reversal_potential=120, state_var=0.01)
         
         self.membrane_potential = -70
         self.threshold_potential = -55
@@ -86,9 +89,9 @@ class DetailedNeuron:
             return -np.exp(delta_t / tau)
 
     def update_ion_channels(self):
-        self.sodium_channel.update_state(self.membrane_potential)
-        self.potassium_channel.update_state(self.membrane_potential)
-        self.calcium_channel.update_state(self.membrane_potential)
+        self.sodium_channel.update_state(self.membrane_potential, self.time_step)
+        self.potassium_channel.update_state(self.membrane_potential, self.time_step)
+        self.calcium_channel.update_state(self.membrane_potential, self.time_step)
 
     def calculate_total_current(self):
         sodium_current = self.sodium_channel.get_current(self.membrane_potential)
@@ -119,8 +122,8 @@ class DetailedNeuron:
         processed_inputs = inputs * self.dendritic_tree
         return np.sum(processed_inputs)
 
-    def add_synapse(self, target_neuron, weight):
-        synapse = Synapse(target_neuron, weight)
+    def add_synapse(self, target_neuron, weight, neurotransmitter_type='glutamate'):
+        synapse = Synapse(target_neuron, weight, neurotransmitter_type)
         self.synapses.append(synapse)
 
     def receive_input(self, input_value):
@@ -165,7 +168,8 @@ class NeuralNetwork:
         for neuron in self.neurons:
             target_neuron = np.random.choice(self.neurons)
             weight = np.random.rand()
-            neuron.add_synapse(target_neuron, weight)
+            neurotransmitter_type = np.random.choice(['glutamate', 'GABA'])
+            neuron.add_synapse(target_neuron, weight, neurotransmitter_type)
 
     def forward(self, inputs, current_time):
         outputs = []
