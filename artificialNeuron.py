@@ -99,7 +99,14 @@ class DetailedNeuron:
         sodium_current = self.sodium_channel.get_current(self.membrane_potential)
         potassium_current = self.potassium_channel.get_current(self.membrane_potential)
         calcium_current = self.calcium_channel.get_current(self.membrane_potential)
-        return sodium_current + potassium_current + calcium_current
+        total_current = sodium_current + potassium_current + calcium_current
+        # Debug statements to trace values
+        print(f"Membrane Potential: {self.membrane_potential}")
+        print(f"Sodium Current: {sodium_current}")
+        print(f"Potassium Current: {potassium_current}")
+        print(f"Calcium Current: {calcium_current}")
+        print(f"Total Current: {total_current}")
+        return total_current
 
     def ion_channel_dynamics(self):
         total_current = self.calculate_total_current()
