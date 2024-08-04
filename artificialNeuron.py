@@ -13,6 +13,26 @@ class DetailedIonChannel:
     def get_current(self, voltage):
         return self.conductance * self.state * (voltage - self.reversal_potential)
 
+class Synapse:
+    def __init__(self, target_neuron, weight):
+        self.target_neuron = target_neuron
+        self.weight = weight
+        self.neurotransmitter_concentration = 0
+        self.release_probability = np.random.rand()
+
+    def release_neurotransmitter(self):
+        self.neurotransmitter_concentration = self.release_probability * np.random.rand()
+
+    def transmit(self):
+        binding = self.neurotransmitter_concentration * np.random.rand()
+        self.target_neuron.receive_input(binding * self.weight)
+
+class Astrocyte:
+    def __init__(self, support_level):
+        self.support_level = support_level
+
+    def modulate(self, inputs):
+        return inputs + self.support_level
 
 class DetailedNeuron:
     def __init__(self, num_inputs):
@@ -40,11 +60,12 @@ class DetailedNeuron:
         self.ltp_factor = 0.01
         self.ltd_factor = 0.01
 
-        self.astrocyte_support = 0.1
+        self.astrocyte_support = Astrocyte(support_level=0.1)
         self.dopamine_level = 1.0
 
         self.axon_length = np.random.rand()
         self.dendritic_tree = np.random.rand(num_inputs)
+        self.synapses = []
 
     def sigmoid(self, x):
         return 1 / (1 + np.exp(-x))
@@ -98,11 +119,18 @@ class DetailedNeuron:
         processed_inputs = inputs * self.dendritic_tree
         return np.sum(processed_inputs)
 
+    def add_synapse(self, target_neuron, weight):
+        synapse = Synapse(target_neuron, weight)
+        self.synapses.append(synapse)
+
+    def receive_input(self, input_value):
+        self.membrane_potential += input_value
+
     def forward(self, inputs, current_time):
         if current_time - self.last_spike_time < self.refractory_period:
-            return 0
+            return 0, 0, 0  # Ensure a tuple is returned
 
-        inputs += self.astrocyte_support
+        inputs = self.astrocyte_support.modulate(inputs)
         inputs *= self.dopamine_level
 
         processed_inputs = self.detailed_dendritic_processing(inputs)
@@ -123,11 +151,21 @@ class DetailedNeuron:
         receptor_binding = self.synaptic_transmission(neurotransmitter_release)
         signaling = self.intracellular_signaling(processed_inputs)
         
+        for synapse in self.synapses:
+            synapse.release_neurotransmitter()
+            synapse.transmit()
+
         return output, receptor_binding, signaling
 
 class NeuralNetwork:
     def __init__(self, num_neurons, num_inputs):
         self.neurons = [DetailedNeuron(num_inputs) for _ in range(num_neurons)]
+
+    def connect_neurons(self):
+        for neuron in self.neurons:
+            target_neuron = np.random.choice(self.neurons)
+            weight = np.random.rand()
+            neuron.add_synapse(target_neuron, weight)
 
     def forward(self, inputs, current_time):
         outputs = []
@@ -148,6 +186,7 @@ class NeuralNetwork:
 num_neurons = 10
 num_inputs = 5
 network = NeuralNetwork(num_neurons, num_inputs)
+network.connect_neurons()
 
 inputs = np.random.rand(num_inputs)
 targets = np.random.rand(num_neurons)
