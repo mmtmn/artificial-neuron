@@ -11,12 +11,22 @@ class DetailedIonChannel:
         # Safely compute alpha and beta
         with np.errstate(over='ignore'):
             alpha = 0.1 * (voltage + 40) / (1 - np.exp(-(voltage + 40) / 10))
+            if np.isnan(alpha) or np.isinf(alpha):
+                alpha = 0  # Handle invalid alpha values
+            
             beta = 4 * np.exp(-(voltage + 65) / 18)
+            if np.isnan(beta) or np.isinf(beta):
+                beta = 0  # Handle invalid beta values
 
         self.state_var = self.state_var + time_step * (alpha * (1 - self.state_var) - beta * self.state_var)
+        # Ensure state_var stays within valid range
+        self.state_var = np.clip(self.state_var, 0, 1)
 
     def get_current(self, voltage):
-        return self.conductance * (self.state_var ** 3) * (voltage - self.reversal_potential)
+        current = self.conductance * (self.state_var ** 3) * (voltage - self.reversal_potential)
+        if np.isnan(current) or np.isinf(current):
+            current = 0  # Handle invalid current values
+        return current
 
 class Synapse:
     def __init__(self, target_neuron, weight, neurotransmitter_type='glutamate'):
@@ -111,6 +121,8 @@ class DetailedNeuron:
     def ion_channel_dynamics(self):
         total_current = self.calculate_total_current()
         delta_v = (total_current / self.membrane_resistance) * self.time_step
+        if np.isnan(delta_v) or np.isinf(delta_v):
+            delta_v = 0  # Handle invalid voltage changes
         self.membrane_potential += delta_v
 
         if self.membrane_potential >= self.threshold_potential:
