@@ -9,19 +9,26 @@ class DetailedIonChannel:
 
     def update_state(self, voltage, time_step):
         # Safely compute alpha and beta
-        try:
+        with np.errstate(over='ignore'):
             alpha = 0.1 * (voltage + 40) / (1 - np.exp(-(voltage + 40) / 10))
-        except OverflowError:
-            alpha = 0.1 * (voltage + 40) / 10  # Approximation for large voltages
-        try:
             beta = 4 * np.exp(-(voltage + 65) / 18)
-        except OverflowError:
-            beta = 0  # For very negative voltages, beta tends to 0
 
         self.state_var = self.state_var + time_step * (alpha * (1 - self.state_var) - beta * self.state_var)
 
     def get_current(self, voltage):
         return self.conductance * (self.state_var ** 3) * (voltage - self.reversal_potential)
+
+class DetailedNeuron:
+    # Rest of your class definition...
+
+    def calculate_total_current(self):
+        sodium_current = self.sodium_channel.get_current(self.membrane_potential)
+        potassium_current = self.potassium_channel.get_current(self.membrane_potential)
+        calcium_current = self.calcium_channel.get_current(self.membrane_potential)
+
+        with np.errstate(invalid='ignore'):
+            total_current = sodium_current + potassium_current + calcium_current
+        return total_current
 
 class Synapse:
     def __init__(self, target_neuron, weight, neurotransmitter_type='glutamate'):
