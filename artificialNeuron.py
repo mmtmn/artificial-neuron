@@ -18,18 +18,6 @@ class DetailedIonChannel:
     def get_current(self, voltage):
         return self.conductance * (self.state_var ** 3) * (voltage - self.reversal_potential)
 
-class DetailedNeuron:
-    # Rest of your class definition...
-
-    def calculate_total_current(self):
-        sodium_current = self.sodium_channel.get_current(self.membrane_potential)
-        potassium_current = self.potassium_channel.get_current(self.membrane_potential)
-        calcium_current = self.calcium_channel.get_current(self.membrane_potential)
-
-        with np.errstate(invalid='ignore'):
-            total_current = sodium_current + potassium_current + calcium_current
-        return total_current
-
 class Synapse:
     def __init__(self, target_neuron, weight, neurotransmitter_type='glutamate'):
         self.target_neuron = target_neuron
