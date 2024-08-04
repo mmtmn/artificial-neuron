@@ -50,33 +50,48 @@ class Astrocyte:
         return inputs + self.support_level
 
 class DetailedNeuron:
-    def __init__(self, num_inputs):
+    def __init__(self, num_inputs, params=None):
+        if params is None:
+            params = {
+                'sodium_conductance': 120, 'sodium_reversal_potential': 50, 'sodium_state_var': 0.05,
+                'potassium_conductance': 36, 'potassium_reversal_potential': -77, 'potassium_state_var': 0.6,
+                'calcium_conductance': 2, 'calcium_reversal_potential': 120, 'calcium_state_var': 0.01,
+                'leak_conductance': 0.3, 'leak_reversal_potential': -54.387,
+                'membrane_potential': -65, 'threshold_potential': -55, 'reset_potential': -70,
+                'membrane_resistance': 10, 'membrane_capacitance': 1, 'time_step': 1,
+                'ltp_factor': 0.01, 'ltd_factor': 0.01,
+                'refractory_period': 2.0, 'spike_threshold': 0.5, 'learning_rate': 0.01,
+                'astrocyte_support_level': 0.1, 'dopamine_level': 1.0
+            }
         self.num_inputs = num_inputs
         self.weights_exc = np.random.rand(num_inputs)
         self.weights_inh = np.random.rand(num_inputs)
         self.bias = np.random.rand(1)
         self.last_spike_time = -np.inf
-        self.refractory_period = 2.0
-        self.learning_rate = 0.01
-        self.spike_threshold = 0.5
+        self.refractory_period = params['refractory_period']
+        self.learning_rate = params['learning_rate']
+        self.spike_threshold = params['spike_threshold']
         self.dendritic_structure = np.random.rand(num_inputs)
         
-        self.sodium_channel = DetailedIonChannel('Na', conductance=120, reversal_potential=50, state_var=0.05)
-        self.potassium_channel = DetailedIonChannel('K', conductance=36, reversal_potential=-77, state_var=0.6)
-        self.calcium_channel = DetailedIonChannel('Ca', conductance=2, reversal_potential=120, state_var=0.01)
+        self.sodium_channel = DetailedIonChannel('Na', conductance=params['sodium_conductance'], reversal_potential=params['sodium_reversal_potential'], state_var=params['sodium_state_var'])
+        self.potassium_channel = DetailedIonChannel('K', conductance=params['potassium_conductance'], reversal_potential=params['potassium_reversal_potential'], state_var=params['potassium_state_var'])
+        self.calcium_channel = DetailedIonChannel('Ca', conductance=params['calcium_conductance'], reversal_potential=params['calcium_reversal_potential'], state_var=params['calcium_state_var'])
         
-        self.membrane_potential = -70
-        self.threshold_potential = -55
-        self.reset_potential = -70
-        self.membrane_resistance = 10
-        self.membrane_capacitance = 1
-        self.time_step = 1
+        self.membrane_potential = params['membrane_potential']
+        self.threshold_potential = params['threshold_potential']
+        self.reset_potential = params['reset_potential']
+        self.membrane_resistance = params['membrane_resistance']
+        self.membrane_capacitance = params['membrane_capacitance']
+        self.time_step = params['time_step']
         
-        self.ltp_factor = 0.01
-        self.ltd_factor = 0.01
+        self.ltp_factor = params['ltp_factor']
+        self.ltd_factor = params['ltd_factor']
 
-        self.astrocyte_support = Astrocyte(support_level=0.1)
-        self.dopamine_level = 1.0
+        self.astrocyte_support = Astrocyte(support_level=params['astrocyte_support_level'])
+        self.dopamine_level = params['dopamine_level']
+
+        self.leak_conductance = params['leak_conductance']
+        self.leak_reversal_potential = params['leak_reversal_potential']
 
         self.axon_length = np.random.rand()
         self.dendritic_tree = np.random.rand(num_inputs)
@@ -109,12 +124,14 @@ class DetailedNeuron:
         sodium_current = self.sodium_channel.get_current(self.membrane_potential)
         potassium_current = self.potassium_channel.get_current(self.membrane_potential)
         calcium_current = self.calcium_channel.get_current(self.membrane_potential)
-        total_current = sodium_current + potassium_current + calcium_current
+        leak_current = self.leak_conductance * (self.membrane_potential - self.leak_reversal_potential)
+        total_current = sodium_current + potassium_current + calcium_current + leak_current
         # Debug statements to trace values
         print(f"Membrane Potential: {self.membrane_potential}")
         print(f"Sodium Current: {sodium_current}")
         print(f"Potassium Current: {potassium_current}")
         print(f"Calcium Current: {calcium_current}")
+        print(f"Leak Current: {leak_current}")
         print(f"Total Current: {total_current}")
         return total_current
 
@@ -182,8 +199,8 @@ class DetailedNeuron:
         return output, receptor_binding, signaling
 
 class NeuralNetwork:
-    def __init__(self, num_neurons, num_inputs):
-        self.neurons = [DetailedNeuron(num_inputs) for _ in range(num_neurons)]
+    def __init__(self, num_neurons, num_inputs, neuron_params=None):
+        self.neurons = [DetailedNeuron(num_inputs, params=neuron_params) for _ in range(num_neurons)]
 
     def connect_neurons(self):
         for neuron in self.neurons:
