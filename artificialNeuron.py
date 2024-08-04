@@ -8,9 +8,16 @@ class DetailedIonChannel:
         self.state_var = state_var  # e.g., m, h, n gating variables
 
     def update_state(self, voltage, time_step):
-        # Placeholder for gating variable dynamics
-        alpha = 0.1 * (voltage + 40) / (1 - np.exp(-(voltage + 40) / 10))
-        beta = 4 * np.exp(-(voltage + 65) / 18)
+        # Safely compute alpha and beta
+        try:
+            alpha = 0.1 * (voltage + 40) / (1 - np.exp(-(voltage + 40) / 10))
+        except OverflowError:
+            alpha = 0.1 * (voltage + 40) / 10  # Approximation for large voltages
+        try:
+            beta = 4 * np.exp(-(voltage + 65) / 18)
+        except OverflowError:
+            beta = 0  # For very negative voltages, beta tends to 0
+
         self.state_var = self.state_var + time_step * (alpha * (1 - self.state_var) - beta * self.state_var)
 
     def get_current(self, voltage):
@@ -183,8 +190,38 @@ class NeuralNetwork:
             for i in range(len(inputs)):
                 current_time = epoch * len(inputs) + i
                 outputs = self.forward(inputs[i], current_time)
-                # Placeholder for training logic to adjust neuron weights based on error
-                # e.g., backpropagation or other learning rules
+
+                for neuron_idx, neuron in enumerate(self.neurons):
+                    target = targets[i][neuron_idx]
+                    output = outputs[neuron_idx][0]
+                    error = target - output
+
+                    # Simple reward-based modulation (dopamine effect)
+                    reward = np.exp(-error**2)
+                    neuron.dopamine_level = reward
+
+                    for synapse in neuron.synapses:
+                        delta_t = current_time - neuron.last_spike_time
+
+                        # Update synaptic weights using STDP and Hebbian learning
+                        for j in range(neuron.num_inputs):
+                            input_value = float(inputs[i][j])  # Ensure input_value is a scalar
+                            stdp_value = neuron.stdp(delta_t)
+
+                            if delta_t > 0:
+                                neuron.weights_exc[j] += neuron.learning_rate * stdp_value * input_value * reward
+                                neuron.weights_inh[j] -= neuron.learning_rate * stdp_value * input_value * reward
+                            else:
+                                neuron.weights_exc[j] -= neuron.learning_rate * stdp_value * input_value * reward
+                                neuron.weights_inh[j] += neuron.learning_rate * stdp_value * input_value * reward
+
+                            # Apply a Hebbian-like learning rule
+                            neuron.weights_exc[j] += neuron.learning_rate * input_value * output
+                            neuron.weights_inh[j] -= neuron.learning_rate * input_value * output
+
+                            # Apply bounds to the weights
+                            neuron.weights_exc[j] = np.clip(neuron.weights_exc[j], 0, 1)
+                            neuron.weights_inh[j] = np.clip(neuron.weights_inh[j], 0, 1)
 
 # Example usage
 num_neurons = 10
@@ -192,10 +229,10 @@ num_inputs = 5
 network = NeuralNetwork(num_neurons, num_inputs)
 network.connect_neurons()
 
-inputs = np.random.rand(num_inputs)
-targets = np.random.rand(num_neurons)
-network.train([inputs], [targets], epochs=10)
+inputs = [np.random.rand(num_inputs) for _ in range(10)]  # List of input vectors
+targets = [np.random.rand(num_neurons) for _ in range(10)]  # List of target vectors
+network.train(inputs, targets, epochs=10)
 
 for t in range(10):
-    outputs = network.forward(inputs, current_time=t)
+    outputs = network.forward(inputs[t % len(inputs)], current_time=t)
     print(f"Time {t}: Network outputs: {outputs}")
